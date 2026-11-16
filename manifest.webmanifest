@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Naik — Weight Gain Companion",
+  "short_name": "Naik",
+  "description": "Jurnal personal untuk makan, berat badan, dan latihan menuju targetmu.",
+  "lang": "id",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f8f4",
+  "theme_color": "#f7f8f4",
+  "icons": [
+    {"src":"./assets/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"./assets/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}

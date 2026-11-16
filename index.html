@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f8f4" />
+  <meta name="description" content="Naik — jurnal makan, berat badan, dan latihan untuk mencapai berat badan idealmu secara konsisten." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Naik" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="./assets/icon.svg" />
+  <link rel="apple-touch-icon" href="./assets/icon-192.png" />
+  <link rel="stylesheet" href="./assets/styles.css" />
+  <title>Naik — Grow at your pace</title>
+</head>
+<body>
+  <div class="app-shell" id="app-shell">
+    <aside class="sidebar" aria-label="Navigasi utama">
+      <a class="brand brand-desktop" href="#home" data-action="navigate" data-tab="home" aria-label="Naik beranda">
+        <span class="brand-mark" aria-hidden="true"><span class="brand-stem"></span><span class="brand-leaf"></span></span>
+        <span class="brand-text">naik<span class="brand-period">.</span></span>
+      </a>
+      <p class="nav-section-label">MENU UTAMA</p>
+      <nav id="desktop-nav" class="desktop-nav"></nav>
+      <div class="sidebar-bottom">
+        <div class="mini-motivation"><span class="motivation-sun">✦</span><p>Small steps,<br /><strong>stronger you.</strong></p><span class="mini-hill"></span></div>
+        <div class="sidebar-caption">Made for a healthier routine. <span>♡</span></div>
+      </div>
+    </aside>
+
+    <div class="page-column">
+      <header class="mobile-header">
+        <a class="brand" href="#home" data-action="navigate" data-tab="home" aria-label="Naik beranda">
+          <span class="brand-mark" aria-hidden="true"><span class="brand-stem"></span><span class="brand-leaf"></span></span>
+          <span class="brand-text">naik<span class="brand-period">.</span></span>
+        </a>
+        <button class="header-avatar" data-action="navigate" data-tab="settings" aria-label="Buka profil">H</button>
+      </header>
+      <main id="main-view" class="main-view" tabindex="-1"></main>
+    </div>
+
+    <aside id="right-rail" class="right-rail" aria-label="Ringkasan harian"></aside>
+  </div>
+
+  <nav id="mobile-nav" class="mobile-nav" aria-label="Navigasi bawah"></nav>
+  <div id="modal-layer"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="offline-banner" class="offline-banner" hidden>Kamu sedang offline. Data tetap tersimpan di perangkat ini.</div>
+  <input type="file" id="import-file" hidden accept="application/json,.json" />
+  <script defer src="./assets/app.js"></script>
+</body>
+</html>
