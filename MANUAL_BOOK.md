@@ -264,7 +264,7 @@ Atur **Target naik per minggu** pada menu **Profil**. Menu **Progres** membandin
 
 ### Favorit dan Pencarian Makanan
 
-Pada menu **Makan**, ketuk tombol hati pada makanan tercatat untuk menyimpannya sebagai favorit. Favorit tampil pada bagian **Favoritmu** dan dapat dipilih untuk mengisi formulir lebih cepat.
+Pada menu **Makan**, ketuk tombol hati pada makanan tercatat untuk menyimpannya sebagai favorit. Ketuk kembali hati terisi untuk menghapusnya. Favorit tampil pada bagian **Favoritmu** dan dapat dipilih untuk mengisi formulir lebih cepat.
 
 Gunakan kolom pencarian pada catatan makanan untuk menyaring makanan di tanggal yang sedang dibuka.
 

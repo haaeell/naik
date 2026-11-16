@@ -126,6 +126,9 @@ button, input, select { -webkit-tap-highlight-color: transparent; }
 .food-icon.dinner {background:#edf2f6;}
 .food-icon.late {background:#f6f0e9;}
 .meal-name{font-size:13px;font-weight:750;white-space:normal;}
+.meal-copy{flex:1;min-width:0;}
+.meal-nutrition{flex-shrink:0;}
+.meal-actions{display:flex;align-items:center;gap:2px;flex-shrink:0;}
 .meal-type{font-size:11px;color:#98a39a;margin-top:4px;}
 .meal-val{white-space:nowrap;font-size:13px;font-weight:760;text-align:right;margin-left:auto;}
 .meal-protein{font-size:10px;color:#9aaca0;text-align:right;margin-top:4px;}
@@ -133,6 +136,8 @@ button, input, select { -webkit-tap-highlight-color: transparent; }
 .small-add:hover {background:#e7f1e3;}
 .small-add.added {background:#eaf2e9;color:#578466;}
 .small-add svg{width:13px;height:13px;vertical-align:middle;}
+.favorite-btn{width:30px;height:30px;border:1px solid #d9e6da;background:#fff;border-radius:9px;color:#71917a;font-size:18px;line-height:1;display:grid;place-items:center;flex-shrink:0;}
+.favorite-btn.active{background:#fff2ee;border-color:#f1d5ca;color:#bd725b;}
 .activity-icon{width:41px;height:41px;border-radius:14px;display:grid;place-items:center;background:#e7f2e7;color:#47735b;flex-shrink:0;}
 .activity-icon svg{width:19px;height:19px;}
 .empty-state {padding:35px 15px;text-align:center;color:#87968c;}
@@ -296,7 +301,7 @@ button, input, select { -webkit-tap-highlight-color: transparent; }
 .habit-tile small{display:block;font-size:9px;margin-top:8px;font-weight:700;}
 @media(max-width:1320px){.app-shell{grid-template-columns:232px minmax(0,1fr)}.right-rail{display:none;}.main-view{max-width:930px;padding:35px 38px 60px;}.sidebar{padding-left:20px;}}
 @media(max-width:810px){
- .app-shell{display:block;padding-bottom:84px;}.sidebar{display:none;}.page-column{width:100%;}
+  .app-shell{display:block;padding-bottom:84px;}.sidebar{display:none;}.page-column{width:100%;}
  .mobile-header{height:75px;display:flex;align-items:center;justify-content:space-between;padding:14px 22px 9px;position:sticky;z-index:15;top:0;background:rgba(247,248,244,.94);backdrop-filter:blur(14px);}
  .mobile-header .brand-mark{height:29px;width:29px;}.mobile-header .brand-text{font-size:26px;}
  .header-avatar{width:37px;height:37px;display:grid;place-items:center;border:1px solid #d9e7d7;background:#e9f1e5;border-radius:50%;font-weight:800;color:#56876c;}
@@ -306,14 +311,21 @@ button, input, select { -webkit-tap-highlight-color: transparent; }
  .mobile-nav-item svg{width:22px;height:22px;stroke-width:1.8;}
  .mobile-nav-item.active{color:var(--green);}
  .mobile-nav-item.active::before{content:"";position:absolute;top:-7px;width:21px;height:3px;border-radius:4px;background:#578a69;}
- .toast{bottom:calc(86px + env(safe-area-inset-bottom));}
+  .toast{bottom:calc(86px + env(safe-area-inset-bottom));}
+  input,select,textarea{font-size:16px!important;}
 }
 @media(max-width:540px){
  .page-title{font-size:24px;letter-spacing:-.8px;}.section-topline{margin-bottom:19px;}.date-chip{padding:8px 9px;font-size:10px;}
  .hero{padding:23px 22px;min-height:215px;}.hero-numbers strong{font-size:45px;}.hero-side{display:none;}
  .metric-grid{gap:11px;}.metric-card{padding:17px;min-height:171px;}.metric-number{font-size:26px;}.metric-unit{font-size:11px;}.metric-foot{font-size:9px;}.icon-square{width:31px;height:31px;}
  .card{padding:20px;}.grid-two{grid-template-columns:1fr;gap:15px;}.field-grid{gap:10px;}
- .nutrition-total{padding:18px;}.nutrition-total .big{font-size:31px;}
+  .nutrition-total{padding:18px;}.nutrition-total .big{font-size:31px;}
+  .meal-row{gap:9px;align-items:center;}
+  .meal-nutrition{margin-left:auto;}
+  .meal-actions{gap:0;}
+  .meal-actions .small-add{padding:7px 8px;}
+  .favorite-btn{width:28px;height:28px;}
+  .trash-btn{width:27px;height:27px;}
  .workout-banner{padding:19px;}.workout-banner h2{font-size:19px;}.workout-banner .icon-wrap{width:64px;height:64px;}.workout-banner .icon-wrap svg{width:34px;height:34px;}
  .workout-plan-grid{gap:7px;}.workout-day{padding:13px 10px;}.workout-day strong{font-size:11px;}
  .modal-backdrop{align-items:flex-end;padding:0;}.modal{border-radius:25px 25px 0 0;padding:24px 22px calc(25px + env(safe-area-inset-bottom));max-height:91dvh;width:100%;}
