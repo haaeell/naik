@@ -1,4 +1,4 @@
-const CACHE_NAME = 'naik-pwa-v2';
+const CACHE_NAME = 'naik-pwa-v5';
 const APP_SHELL = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const APP_SHELL = [
   './assets/icon.svg',
   './assets/icon-192.png',
   './assets/icon-512.png',
+  './MANUAL_BOOK.md',
   ...['floor_press','pushup','squeeze_press','bent_row','goblet_squat','rdl','reverse_lunge','glute_bridge','plank'].map(name => `./assets/exercises/${name}.jpg`),
   './manifest.webmanifest'
 ];

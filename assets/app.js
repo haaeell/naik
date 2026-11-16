@@ -31,6 +31,7 @@
     {id:'yogurt',name:'Yogurt + kacang',emoji:'🥜',cal:290,protein:13,type:'late'},
     {id:'oat',name:'Oat + susu',emoji:'🥣',cal:315,protein:14,type:'late'},
   ];
+  const foodById = id => [...presetFoods,...data.favoriteFoods].find(food=>food.id===id);
   const suggestedMeals = [
     {time:'09.30',label:'Sarapan',type:'breakfast',food:'sarapan-komplet',secondary:'2 telur + pisang + susu',kcal:'±410 kkal',icon:'🥚'},
     {time:'13.00',label:'Makan siang',type:'lunch',food:'padang-ayam',secondary:'Nasi Padang ayam + sayur',kcal:'±730 kkal',icon:'🍛'},
@@ -128,9 +129,9 @@
   const tabs = [{id:'home',label:'Beranda',icon:'home'},{id:'meals',label:'Makan',icon:'meal'},{id:'progress',label:'Progres',icon:'progress'},{id:'workout',label:'Latihan',icon:'workout'},{id:'settings',label:'Profil',icon:'settings'}];
   const createDefault = () => ({
     version:2,
-    profile:{name:'Haikal',height:174,startWeight:57.5,targetWeight:65,calorieGoal:2400,proteinGoal:95,startDate:TODAY()},
+    profile:{name:'Haikal',height:174,startWeight:57.5,targetWeight:65,weeklyGain:.25,calorieGoal:2400,proteinGoal:95,startDate:TODAY()},
     weights:[{id:uid(),date:TODAY(),weight:57.5}],
-    meals:[], workouts:{}, workoutSessions:[], activityLogs:[], activeWorkout:null, workoutSettings:{time:'17:30',programStart:weekMonday(TODAY())},
+    meals:[], favoriteFoods:[], theme:'light', workouts:{}, workoutSessions:[], activityLogs:[], activeWorkout:null, backupLastExport:0, reminders:{workout:false,lastDate:''}, workoutSettings:{time:'17:30',programStart:weekMonday(TODAY())},
   });
   function loadData() {
     try {
@@ -139,11 +140,11 @@
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed!=='object' || !Array.isArray(parsed.weights) || !Array.isArray(parsed.meals) || !parsed.profile) throw Error('Invalid data');
       const defaults=createDefault();
-      return {...defaults,...parsed,version:2,profile:{...defaults.profile,...parsed.profile},workouts:parsed.workouts&&typeof parsed.workouts==='object'&&!Array.isArray(parsed.workouts)?parsed.workouts:{},workoutSessions:Array.isArray(parsed.workoutSessions)?parsed.workoutSessions:[],activityLogs:Array.isArray(parsed.activityLogs)?parsed.activityLogs:[],activeWorkout:parsed.activeWorkout&&typeof parsed.activeWorkout==='object'?parsed.activeWorkout:null,workoutSettings:{...defaults.workoutSettings,...(parsed.workoutSettings||{})}};
+      return {...defaults,...parsed,version:2,theme:parsed.theme==='dark'?'dark':'light',favoriteFoods:Array.isArray(parsed.favoriteFoods)?parsed.favoriteFoods.slice(0,30):[],backupLastExport:Number(parsed.backupLastExport)||0,reminders:{...defaults.reminders,...(parsed.reminders||{})},profile:{...defaults.profile,...parsed.profile},workouts:parsed.workouts&&typeof parsed.workouts==='object'&&!Array.isArray(parsed.workouts)?parsed.workouts:{},workoutSessions:Array.isArray(parsed.workoutSessions)?parsed.workoutSessions:[],activityLogs:Array.isArray(parsed.activityLogs)?parsed.activityLogs:[],activeWorkout:parsed.activeWorkout&&typeof parsed.activeWorkout==='object'?parsed.activeWorkout:null,workoutSettings:{...defaults.workoutSettings,...(parsed.workoutSettings||{})}};
     } catch(err) { console.warn('Data gagal dibaca; menggunakan data awal.',err); return createDefault(); }
   }
   let data = loadData();
-  let ui = {tab:'home',mealDate:TODAY(),progressRange:'30',modal:null,installPrompt:null,workoutDate:TODAY(),workoutFocus:false};
+  let ui = {tab:'home',mealDate:TODAY(),mealSearch:'',progressRange:'30',modal:null,installPrompt:null,workoutDate:TODAY(),workoutFocus:false,workoutProgressExercise:''};
   let toastTimeout;
   const save = () => { try { localStorage.setItem(STORE_KEY,JSON.stringify(data)); return true; } catch { showToast('Penyimpanan gagal. Periksa ruang browser.'); return false; } };
   function showToast(message) { const el=document.getElementById('toast'); el.textContent=message;el.classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>el.classList.remove('show'),3000); }
@@ -161,6 +162,14 @@
   const greeting = () => { const h=new Date().getHours();return h<11?'Selamat pagi':h<15?'Selamat siang':h<19?'Selamat sore':'Selamat malam';};
   const delta = () => currentWeight()-Number(data.profile.startWeight);
   const todayDone = () => dayStatus(TODAY()).filter(m=>m.completed).length;
+  const backupDue = () => !data.backupLastExport || Date.now()-data.backupLastExport>=7*86400000;
+  const weeklySummary = () => {
+    const start=dateShift(TODAY(),-6),days=Array.from({length:7},(_,i)=>dateShift(start,i));
+    const nutrition=days.filter(day=>{const total=totalsOn(day);return total.cal>=Number(data.profile.calorieGoal)&&total.protein>=Number(data.profile.proteinGoal);}).length;
+    const workouts=days.filter(day=>completedWorkoutDates().has(day)).length;
+    const activities=days.filter(activityOn).length;
+    return {nutrition,workouts,activities};
+  };
   const isTrainingDay = date => planForDate(date)?.category==='strength';
   const getTabFromHash = () => { const h=location.hash.slice(1);return tabs.some(t=>t.id===h)?h:null; };
   if(getTabFromHash())ui.tab=getTabFromHash();
@@ -174,6 +183,7 @@
   function renderHome() {
     const w=currentWeight(),remaining=Math.max(0,Number(data.profile.targetWeight)-w),today=totalsOn(TODAY());
     const calPct=clamp(today.cal/Number(data.profile.calorieGoal)*100,0,100), proteinPct=clamp(today.protein/Number(data.profile.proteinGoal)*100,0,100);
+    const weekly=weeklySummary();
     return `${titleBlock('MY WELLNESS SPACE',`${greeting()}, ${esc(data.profile.name.split(' ')[0])} <span style="font-size:.7em">🌿</span>`,'Sedikit demi sedikit, kamu makin dekat dengan targetmu.',`<span class="date-chip">${icon('calendar')}${formatDate(TODAY(),{day:'numeric',month:'short'})}</span>`)}
       <section class="hero" aria-label="Target berat badan">
         <div class="hero-topline">${icon('sparkle')} PERJALANAN BERAT BADANMU</div>
@@ -199,22 +209,25 @@
         <div class="meal-list">${dayStatus(TODAY()).map(m=>`<div class="meal-row"><span class="food-icon ${m.type}">${m.icon}</span><div style="flex:1;min-width:0"><div class="meal-name">${m.label} <span style="color:#a5b0a5;font-size:10px;font-weight:500">${m.time}</span></div><div class="meal-type">${m.secondary}</div></div><button type="button" class="small-add ${m.completed?'added':''}" data-action="open-meal" data-food="${m.food}" data-type="${m.type}" aria-label="${m.completed?'Tambah lagi':'Catat'} ${m.label}">${m.completed?'✓ Dicatat':'+ Catat'}</button></div>`).join('')}</div>
       </section>
       <div class="section-heading"><div><h2>Terus bergerak</h2><p class="section-note">Jadwal terarah dengan 2 dumbbell 5 kg</p></div><button class="link-button" data-action="navigate" data-tab="workout">Lihat latihan ${icon('arrow')}</button></div>
-      <section class="card flat"><div style="display:flex;align-items:center;gap:14px;"><span class="activity-icon" style="width:50px;height:50px">${icon('workout')}</span><div style="flex:1"><strong style="font-size:13px">${esc(planForDate(TODAY()).name)}</strong><p class="card-subtitle" style="margin:6px 0 0">${planForDate(TODAY()).category==='rest'?'Istirahat & pemulihan':workoutTimeLabel()+' WIB · ±'+planForDate(TODAY()).minutes+' menit'} · ${workoutDays()}/3 sesi beban minggu ini</p></div><button class="small-add" data-action="navigate" data-tab="workout">${data.activeWorkout?'Lanjut':'Buka'} ${icon('right')}</button></div></section>
-      <div class="bottom-cta"><button class="primary-btn" data-action="open-meal">${icon('plus')} Catat makanan</button><button class="outline-btn" data-action="open-weight">${icon('weight')} Timbang badan</button></div>
+       <section class="card flat"><div style="display:flex;align-items:center;gap:14px;"><span class="activity-icon" style="width:50px;height:50px">${icon('workout')}</span><div style="flex:1"><strong style="font-size:13px">${esc(planForDate(TODAY()).name)}</strong><p class="card-subtitle" style="margin:6px 0 0">${planForDate(TODAY()).category==='rest'?'Istirahat & pemulihan':workoutTimeLabel()+' WIB · ±'+planForDate(TODAY()).minutes+' menit'} · ${workoutDays()}/3 sesi beban minggu ini</p></div><button class="small-add" data-action="navigate" data-tab="workout">${data.activeWorkout?'Lanjut':'Buka'} ${icon('right')}</button></div></section>
+      <section class="card flat weekly-summary"><div class="card-head"><div><h2 class="card-title">Ringkasan 7 hari</h2><p class="card-subtitle">${formatDate(dateShift(TODAY(),-6),{day:'numeric',month:'short'})} - ${formatDate(TODAY(),{day:'numeric',month:'short'})}</p></div></div><div><span><strong>${weekly.nutrition}/7</strong> target makan</span><span><strong>${weekly.workouts}/3</strong> latihan beban</span><span><strong>${weekly.activities}/3</strong> aktivitas ringan</span></div></section>
+       <div class="bottom-cta"><button class="primary-btn" data-action="open-meal">${icon('plus')} Catat makanan</button><button class="outline-btn" data-action="open-weight">${icon('weight')} Timbang badan</button></div>
       <p class="muted-note" style="margin:20px 2px 0">Kalori dan protein makanan merupakan perkiraan. Porsi serta cara memasak dapat mengubah nilainya.</p>`;
   }
   function ring(pct) { const p=clamp(pct,0,100),circ=2*Math.PI*37;return `<div class="rings"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="37" fill="none" stroke="#d6e5d1" stroke-width="9"/><circle cx="50" cy="50" r="37" fill="none" stroke="#548e6d" stroke-width="9" stroke-linecap="round" stroke-dasharray="${(circ*p/100).toFixed(2)} ${circ.toFixed(2)}"/></svg><div class="ring-center"><div>${nf(p)}%<small>terpenuhi</small></div></div></div>`;}
   function renderMeals() {
     const date=ui.mealDate,total=totalsOn(date),pct=total.cal/data.profile.calorieGoal*100;
     const isToday=date===TODAY();
-    const entries=entriesOn(date).slice().reverse();
+    const query=ui.mealSearch.trim().toLocaleLowerCase('id-ID');
+    const entries=entriesOn(date).filter(entry=>!query||entry.name.toLocaleLowerCase('id-ID').includes(query)).slice().reverse();
     const grouped=Object.entries(typeLabels).map(([type,name])=>({type,name,entries:entries.filter(x=>x.type===type)})).filter(g=>g.entries.length);
     return `${titleBlock('NUTRITION JOURNAL','Jurnal makan','Bukan soal makan sebanyak mungkin, tapi konsisten memenuhi kebutuhan.',`<button class="primary-btn" data-action="open-meal">${icon('plus')} <span>Tambah</span></button>`)}
       <div class="card flat" style="padding:15px 17px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px"><div><strong style="font-size:13px">${isToday?'Hari ini':formatDate(date,{day:'numeric',month:'long'})}</strong><p class="card-subtitle">${formatDate(date,{weekday:'long',year:'numeric'})}</p></div><div class="date-controls"><button class="circle-icon-btn" data-action="date-prev" aria-label="Hari sebelumnya">${icon('left')}</button><button class="circle-icon-btn" data-action="date-next" aria-label="Hari berikutnya" ${date>=TODAY()?'disabled':''}>${icon('right')}</button></div></div>
       <div class="nutrition-total"><div><p class="eyebrow" style="margin:0 0 7px;color:#75937e">TOTAL KALORI</p><div class="big">${nf(total.cal)} <small>/ ${nf(data.profile.calorieGoal)}</small></div><p>${nf(total.protein,1)} g protein dari target ${nf(data.profile.proteinGoal)} g</p></div>${ring(pct)}</div>
-      <section class="card flat"><div class="card-head"><div><h2 class="card-title">Makanan tercatat</h2><p class="card-subtitle">${entries.length} makanan di hari ini</p></div></div>
-        ${grouped.length?grouped.map(g=>`<div class="group-heading"><span>${g.name}</span></div><div class="meal-list">${g.entries.map(entry=>`<div class="meal-row"><span class="food-icon ${g.type}">${esc(entry.emoji||'🍽️')}</span><div style="flex:1;min-width:0"><div class="meal-name">${esc(entry.name)}</div><div class="meal-type">${nf(entry.portions||1,1)} porsi</div></div><div><div class="meal-val">${nf(entry.cal)} kkal</div><div class="meal-protein">${nf(entry.protein,1)} g protein</div></div><button class="trash-btn" data-action="delete-meal" data-id="${esc(entry.id)}" aria-label="Hapus ${esc(entry.name)}">${icon('trash')}</button></div>`).join('')}</div>`).join(''):`<div class="empty-state"><span class="empty-icon">${icon('meal')}</span><strong>Belum ada makanan</strong><p>Mulai dari satu menu saja. Catat apa yang benar-benar kamu makan.</p><button class="soft-btn" data-action="open-meal">${icon('plus')} Catat makanan</button></div>`}
+      <section class="card flat"><div class="card-head"><div><h2 class="card-title">Makanan tercatat</h2><p class="card-subtitle">${entries.length} makanan ditemukan</p></div></div><input class="meal-search" data-action="meal-search" type="search" value="${esc(ui.mealSearch)}" placeholder="Cari makanan hari ini" aria-label="Cari makanan" />
+        ${grouped.length?grouped.map(g=>`<div class="group-heading"><span>${g.name}</span></div><div class="meal-list">${g.entries.map(entry=>`<div class="meal-row"><span class="food-icon ${g.type}">${esc(entry.emoji||'🍽️')}</span><div style="flex:1;min-width:0"><div class="meal-name">${esc(entry.name)}</div><div class="meal-type">${nf(entry.portions||1,1)} porsi</div></div><div><div class="meal-val">${nf(entry.cal)} kkal</div><div class="meal-protein">${nf(entry.protein,1)} g protein</div></div><button class="small-add" data-action="repeat-meal" data-id="${esc(entry.id)}" aria-label="Catat lagi ${esc(entry.name)}">+ Lagi</button><button class="small-add" data-action="favorite-meal" data-id="${esc(entry.id)}" aria-label="Simpan ${esc(entry.name)} sebagai favorit">♡</button><button class="trash-btn" data-action="delete-meal" data-id="${esc(entry.id)}" aria-label="Hapus ${esc(entry.name)}">${icon('trash')}</button></div>`).join('')}</div>`).join(''):`<div class="empty-state"><span class="empty-icon">${icon('meal')}</span><strong>${query?'Makanan tidak ditemukan':'Belum ada makanan'}</strong><p>${query?'Coba kata kunci lain.':'Mulai dari satu menu saja. Catat apa yang benar-benar kamu makan.'}</p><button class="soft-btn" data-action="open-meal">${icon('plus')} Catat makanan</button></div>`}
       </section>
+      ${data.favoriteFoods.length?`<div class="section-heading"><div><h2>Favoritmu</h2><p class="section-note">Catat sekali tekan</p></div></div><div class="quick-grid">${data.favoriteFoods.map(food=>`<button class="quick-food" data-action="open-meal" data-food="${esc(food.id)}"><span class="emoji">${esc(food.emoji||'🍽️')}</span><strong>${esc(food.name)}</strong><small>±${nf(food.cal)} kkal · ${nf(food.protein)} g protein</small></button>`).join('')}</div>`:''}
       <div class="section-heading"><div><h2>Pilihan cepat</h2><p class="section-note">Berdasarkan menu yang sering kamu makan</p></div></div>
       <div class="quick-grid">${presetFoods.slice(0,10).map(food=>`<button class="quick-food" data-action="open-meal" data-food="${food.id}"><span class="emoji">${food.emoji}</span><strong>${food.name}</strong><small>±${nf(food.cal)} kkal · ${nf(food.protein)} g protein</small></button>`).join('')}</div>
       <p class="muted-note">Nilai makanan hanya estimasi per satu porsi umum. Koreksi kalori/protein dalam formulir sesuai porsi, label, atau hasil penimbangan makanan.</p>`;
@@ -249,14 +262,23 @@
     if(perWeek>.5)return `Tren naik sekitar ${nf(perWeek,2)} kg/minggu. Tinjau apakah kenaikannya terlalu cepat dan sesuaikan asupan bila perlu.`;
     return `Tren turun sekitar ${nf(Math.abs(perWeek),2)} kg/minggu. Periksa konsistensi asupan dan pertimbangkan konsultasi jika terus berlanjut.`;
   }
+  function weeklyGainStatus(){
+    const weights=getWeights();if(weights.length<2)return {label:'Butuh data',copy:'Catat setidaknya dua penimbangan dengan jarak satu minggu untuk membandingkan target.'};
+    const first=weights[0],last=weights.at(-1),days=daysBetween(last.date,first.date);if(days<7)return {label:'Butuh waktu',copy:'Tren mingguan tersedia setelah minimal tujuh hari.'};
+    const actual=(last.weight-first.weight)/(days/7),target=Number(data.profile.weeklyGain)||.25;
+    if(actual<target-.12)return {label:'Lebih lambat',copy:`Tren ${nf(actual,2)} kg/minggu; target ${nf(target,2)} kg/minggu. Pertimbangkan tambah 150-200 kkal/hari bila konsisten 2-3 minggu.`};
+    if(actual>target+.2)return {label:'Lebih cepat',copy:`Tren ${nf(actual,2)} kg/minggu; target ${nf(target,2)} kg/minggu. Tinjau asupan dan pemulihan.`};
+    return {label:'Sesuai target',copy:`Tren ${nf(actual,2)} kg/minggu, dekat target ${nf(target,2)} kg/minggu.`};
+  }
   function renderProgress() {
     const w=currentWeight(),remaining=Math.max(0,data.profile.targetWeight-w),weights=getWeights();
     const last7=weights.filter(x=>x.date>=dateShift(TODAY(),-6)&&x.date<=TODAY());
     const avg=last7.length?last7.reduce((sum,x)=>sum+Number(x.weight),0)/last7.length:null;
-    const milestones=[60,62,65].filter(v=>v>Number(data.profile.startWeight)&&v<=Number(data.profile.targetWeight));
+    const milestones=[60,62,65].filter(v=>v>Number(data.profile.startWeight)&&v<=Number(data.profile.targetWeight)),gain=weeklyGainStatus();
     return `${titleBlock('YOUR GROWTH STORY','Perjalanan beratmu','Pantau tren dari minggu ke minggu, bukan hanya naik-turun harian.',`<button class="primary-btn" data-action="open-weight">${icon('plus')} Timbang</button>`)}
       <div class="grid-two" style="margin-bottom:17px"><div class="stat-box"><div class="stat-label">Berat terkini</div><strong>${nf(w,1)} <small>kg</small></strong><p>${delta()>=0?'+':''}${nf(delta(),1)} kg dari awal</p></div><div class="stat-box"><div class="stat-label">Menuju target</div><strong>${nf(remaining,1)} <small>kg lagi</small></strong><p>${nf(progressPct())}% perjalanan selesai</p></div></div>
-      <section class="card chart-card"><div class="card-head"><div><h2 class="card-title">Grafik perkembangan</h2><p class="card-subtitle">Catatan penimbanganmu</p></div><div class="tab-pills"><button class="tab-pill ${ui.progressRange==='30'?'active':''}" data-action="chart-range" data-range="30">30 hari</button><button class="tab-pill ${ui.progressRange==='90'?'active':''}" data-action="chart-range" data-range="90">90 hari</button></div></div>${chartHtml()}</section>
+       <section class="card chart-card"><div class="card-head"><div><h2 class="card-title">Grafik perkembangan</h2><p class="card-subtitle">Catatan penimbanganmu</p></div><div class="tab-pills"><button class="tab-pill ${ui.progressRange==='30'?'active':''}" data-action="chart-range" data-range="30">30 hari</button><button class="tab-pill ${ui.progressRange==='90'?'active':''}" data-action="chart-range" data-range="90">90 hari</button></div></div>${chartHtml()}</section>
+      <div class="gain-status"><strong>${gain.label}</strong><p>${gain.copy}</p></div>
       <div class="insight">${icon('sparkle')}<div><strong>Catatan untukmu</strong><p>${trendInsight()}</p>${avg!==null?`<p>Rata-rata catatan 7 hari terakhir: <strong>${nf(avg,2)} kg</strong> (${last7.length} data).</p>`:''}</div></div>
       <div class="section-heading"><div><h2>Milestone perjalanan</h2><p class="section-note">Rayakan kenaikan kecil yang konsisten</p></div></div>
       <section class="card flat">${milestones.map(v=>`<div class="milestone-row ${w>=v?'done':''}"><div class="milestone-number">${nf(v)}<span style="font-size:9px">kg</span></div><div><strong>${v===data.profile.targetWeight?'Target utama':`Checkpoint ${v} kg`}</strong><small>${w>=v?'Sudah tercapai!':`${nf(v-w,1)} kg lagi`}</small></div><div class="milestone-icon">${icon(w>=v?'check':'target')}</div></div>`).join('')}</section>
@@ -281,6 +303,18 @@
     let cursor=Number(data.workoutSettings.time.slice(0,2))*60+Number(data.workoutSettings.time.slice(3,5));
     const items=(timetableMinutes[plan.id]||[]).map(([label,minutes])=>{const start=cursor;cursor+=minutes;return `<div class="workout-timeline-row"><time>${clockFromMinutes(start)}–${clockFromMinutes(cursor)}</time><span>${esc(label)}</span><small>${minutes} menit</small></div>`;}).join('');
     return `<details class="workout-timeline" open><summary>${icon('calendar')} Detail waktu & urutan latihan <span>${icon('right')}</span></summary><div class="workout-timeline-list">${items}</div><p>Jam di atas hanya estimasi. Set dan istirahat nyata boleh menyesuaikan kemampuanmu.</p></details>`;
+  }
+  function workoutProgressHtml() {
+    const logs=relevantSessions().flatMap(session=>(session.sets||[]).map(set=>({...set,date:session.date}))).filter(set=>trainingExercises[set.exerciseId]);
+    const ids=[...new Set(logs.map(set=>set.exerciseId))];
+    if(!ids.length)return '<section class="card flat"><div class="empty-state"><strong>Belum ada progres kekuatan</strong><p>Selesaikan workout untuk melihat tren repetisi, durasi, atau beban.</p></div></section>';
+    const id=ids.includes(ui.workoutProgressExercise)?ui.workoutProgressExercise:ids[0],ex=trainingExercises[id];
+    ui.workoutProgressExercise=id;
+    const sessions=Object.values(logs.filter(set=>set.exerciseId===id).reduce((all,set)=>{(all[set.date]||=[]).push(set);return all;},{})).map(sets=>({date:sets[0].date,value:sets.reduce((sum,set)=>sum+Number(set.seconds||set.reps||0),0),load:Math.max(...sets.map(set=>Number(set.load)||0))})).sort((a,b)=>a.date.localeCompare(b.date)).slice(-8);
+    const values=sessions.map(session=>session.value),min=Math.min(...values),max=Math.max(...values),range=Math.max(1,max-min);
+    const points=sessions.map((session,index)=>`${sessions.length===1?50:5+index/(sessions.length-1)*90},${88-(session.value-min)/range*66}`).join(' ');
+    const label=ex.timed?'detik total':'repetisi total';
+    return `<section class="card flat workout-progress"><div class="card-head"><div><h2 class="card-title">Progres kekuatan</h2><p class="card-subtitle">Total ${label} setiap sesi</p></div></div><select class="progress-exercise-select" data-action="select-workout-progress" aria-label="Pilih gerakan">${ids.map(item=>`<option value="${item}" ${item===id?'selected':''}>${esc(trainingExercises[item].name)}</option>`).join('')}</select><div class="workout-progress-chart"><svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Grafik ${esc(ex.name)}"><polyline points="${points}"/></svg></div><div class="workout-progress-values">${sessions.map(session=>`<span><strong>${nf(session.value)}</strong><small>${formatDate(session.date,{day:'numeric',month:'short'})}${session.load>0?' · '+nf(session.load,1)+' kg':''}</small></span>`).join('')}</div></section>`;
   }
   function renderWorkout() {
     if(ui.workoutFocus&&data.activeWorkout) return renderGuidedWorkout();
@@ -310,7 +344,8 @@
       <div class="section-heading"><div><h2>Perjalanan 8 minggu</h2><p class="section-note">Mulai ${formatDate(data.workoutSettings.programStart,{day:'numeric',month:'short',year:'numeric'})}</p></div><span class="tiny-tag">Minggu ${week}/8</span></div>
       <section class="card flat"><div class="program-weeks">${weeklySegments}</div><p class="muted-note" style="margin-bottom:0">Minggu 1 adaptasi 2 set; minggu 2–3 set normal; minggu 4–7 tingkatkan repetisi atau tempo secara bertahap; minggu 8 evaluasi. Jangan memaksakan gagal total setiap set.</p></section>
       <div class="section-heading"><div><h2>Riwayat latihan</h2><p class="section-note">Pencatatan repetisi dan beban aktual</p></div><span class="tiny-tag">${relevantSessions().length} sesi</span></div>
-      <section class="card flat">${history||'<div class="empty-state"><strong>Belum ada sesi tersimpan</strong><p>Selesaikan workout pertama untuk melihat progres kekuatanmu di sini.</p></div>'}${legacyCount?`<p class="muted-note" style="margin:12px 0 0">${legacyCount} hari checklist workout dari versi lama tetap tersimpan dan dihitung dalam konsistensi mingguan.</p>`:''}</section>`;
+      <section class="card flat">${history||'<div class="empty-state"><strong>Belum ada sesi tersimpan</strong><p>Selesaikan workout pertama untuk melihat progres kekuatanmu di sini.</p></div>'}${legacyCount?`<p class="muted-note" style="margin:12px 0 0">${legacyCount} hari checklist workout dari versi lama tetap tersimpan dan dihitung dalam konsistensi mingguan.</p>`:''}</section>
+      <div class="section-heading"><div><h2>Progres kekuatan</h2><p class="section-note">Bandingkan total per gerakan di setiap sesi</p></div></div>${workoutProgressHtml()}`;
   }
   function renderGuidedWorkout() {
     const a=data.activeWorkout,plan=planById(a?.planId);
@@ -393,20 +428,40 @@
     const elapsed=document.getElementById('elapsed-clock');if(elapsed)elapsed.textContent=secondsLabel(Math.floor(Math.max(0,Date.now()-a.startedAt)/1000));
     const rest=document.getElementById('rest-clock');if(rest){const remaining=Math.ceil((a.restUntil-Date.now())/1000);if(remaining<=0){a.restUntil=0;save();render();}else rest.textContent=secondsLabel(remaining);}
   }
+  async function toggleWorkoutReminder(){
+    if(!('Notification' in window))return showToast('Notifikasi tidak didukung browser ini.');
+    if(data.reminders.workout){data.reminders.workout=false;save();render();return;}
+    const permission=Notification.permission==='default'?await Notification.requestPermission():Notification.permission;
+    if(permission!=='granted')return showToast('Izin notifikasi diperlukan.');
+    data.reminders.workout=true;data.reminders.lastDate='';save();render();showToast('Pengingat workout diaktifkan.');
+  }
+  function checkWorkoutReminder(){
+    if(!data.reminders.workout||!('Notification' in window)||Notification.permission!=='granted')return;
+    const now=new Date(),today=TODAY(),plan=planForDate(today),[hour,minute]=data.workoutSettings.time.split(':').map(Number);
+    const scheduled=new Date(now);scheduled.setHours(hour,minute,0,0);
+    if(plan?.category!=='strength'||data.reminders.lastDate===today||now<scheduled)return;
+    new Notification('Waktunya workout', {body:`${plan.name} dimulai sekarang. Pemanasan 7 menit dulu.`});
+    data.reminders.lastDate=today;save();
+  }
   function renderSettings() {
+    const backupText=data.backupLastExport?`Backup terakhir: ${new Date(data.backupLastExport).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}.`:'Belum ada backup JSON.';
+    const notificationSupported='Notification' in window;
     return `${titleBlock('YOUR SPACE','Profil & target','Atur target sesuai kebutuhan dan simpan salinan jurnalmu.')}
       <form class="card flat" id="profile-form"><div class="card-head"><div><h2 class="card-title">Profil pribadi</h2><p class="card-subtitle">Personalisasi perjalananmu</p></div><span class="icon-square">${icon('settings')}</span></div>
         <div class="field-grid"><div class="field"><label for="profile-name">Nama panggilan</label><input id="profile-name" name="name" maxlength="50" required value="${esc(data.profile.name)}" /></div><div class="field"><label for="profile-height">Tinggi badan (cm)</label><input id="profile-height" name="height" type="number" min="100" max="230" step="1" required value="${esc(data.profile.height)}" /></div><div class="field"><label for="profile-start">Berat awal (kg)</label><input id="profile-start" name="startWeight" type="number" min="25" max="300" step="0.1" required value="${esc(data.profile.startWeight)}" /></div><div class="field"><label for="profile-target">Target berat (kg)</label><input id="profile-target" name="targetWeight" type="number" min="25" max="300" step="0.1" required value="${esc(data.profile.targetWeight)}" /></div></div>
         <hr class="separator"/><h3 class="card-title" style="margin-bottom:14px">Target asupan harian</h3>
-        <div class="field-grid"><div class="field"><label for="profile-cal">Kalori (kkal)</label><input id="profile-cal" name="calorieGoal" type="number" min="1000" max="6000" step="50" required value="${esc(data.profile.calorieGoal)}" /></div><div class="field"><label for="profile-protein">Protein (gram)</label><input id="profile-protein" name="proteinGoal" type="number" min="30" max="300" step="1" required value="${esc(data.profile.proteinGoal)}" /></div></div>
+        <div class="field-grid"><div class="field"><label for="profile-cal">Kalori (kkal)</label><input id="profile-cal" name="calorieGoal" type="number" min="1000" max="6000" step="50" required value="${esc(data.profile.calorieGoal)}" /></div><div class="field"><label for="profile-protein">Protein (gram)</label><input id="profile-protein" name="proteinGoal" type="number" min="30" max="300" step="1" required value="${esc(data.profile.proteinGoal)}" /></div><div class="field"><label for="profile-weekly-gain">Target naik per minggu (kg)</label><input id="profile-weekly-gain" name="weeklyGain" type="number" min="0.05" max="1" step="0.05" required value="${esc(data.profile.weeklyGain)}" /></div></div>
         <p class="muted-note">Angka awal 2.400 kkal dan 95 g protein adalah target sementara, bukan hasil perhitungan medis. Sesuaikan berdasarkan usia, aktivitas, pola makan, dan tren berat badan.</p>
         <hr class="separator"/><h3 class="card-title" style="margin-bottom:14px">Pengaturan workout</h3>
         <div class="field-grid"><div class="field"><label for="workout-time">Jam mulai (WIB)</label><input id="workout-time" type="time" name="workoutTime" required value="${workoutTimeLabel()}" /></div><div class="field"><label for="program-start">Tanggal mulai program 8 minggu</label><input id="program-start" type="date" name="programStart" max="${TODAY()}" required value="${esc(data.workoutSettings.programStart)}" /></div></div>
         <p class="field-hint">Tanggal program dibulatkan ke hari Senin pada minggu yang dipilih. Pengaturan waktu berlaku untuk semua hari latihan. Riwayat yang sudah disimpan tidak berubah.</p>
         <button type="submit" class="primary-btn" style="margin-top:11px">${icon('check')} Simpan pengaturan</button>
       </form>
+      <div class="section-heading"><div><h2>Pengingat</h2><p class="section-note">Notifikasi latihan saat aplikasi terbuka</p></div></div>
+      <section class="card flat"><div class="reminder-row"><div><strong>Workout ${workoutTimeLabel()} WIB</strong><p>${data.reminders.workout?'Aktif pada hari latihan beban.':'Belum aktif.'}</p></div>${notificationSupported?`<button class="${data.reminders.workout?'outline-btn':'primary-btn'}" data-action="toggle-workout-reminder">${data.reminders.workout?'Matikan':'Aktifkan'}</button>`:'<span class="muted-note">Browser tidak mendukung notifikasi.</span>'}</div><p class="muted-note" style="margin-bottom:0">Pengingat berjalan ketika Naik sedang terbuka. Notifikasi saat aplikasi tertutup memerlukan layanan push/server.</p></section>
+      <div class="section-heading"><div><h2>Tampilan & laporan</h2><p class="section-note">Preferensi tersimpan di perangkat ini</p></div></div><section class="card flat"><div class="settings-actions"><button class="outline-btn" data-action="toggle-theme">${data.theme==='dark'?'☀ Mode terang':'◐ Mode gelap'}</button><button class="outline-btn" data-action="print-weekly-report">${icon('download')} Cetak ringkasan minggu</button></div></section>
       <div class="section-heading"><div><h2>Data & privasi</h2><p class="section-note">Semua data disimpan di perangkat ini</p></div></div>
-      <section class="card flat"><div class="settings-actions"><button class="outline-btn" data-action="export-data">${icon('download')} Ekspor JSON</button><button class="outline-btn" data-action="import-data">${icon('upload')} Impor data</button></div>
+      <section class="card flat"><div class="settings-actions"><button class="outline-btn" data-action="export-data">${icon('download')} Ekspor JSON</button><button class="outline-btn" data-action="import-data">${icon('upload')} Impor data</button><a class="outline-btn" href="./MANUAL_BOOK.md" download="Manual-Pengguna-Naik.md">${icon('download')} Unduh manual</a></div>${backupDue()?`<div class="backup-reminder">${icon('shield')}<div><strong>Waktunya backup</strong><p>Data hanya tersimpan di perangkat ini. Ekspor JSON sekarang.</p></div></div>`:`<p class="muted-note">${backupText}</p>`}
       <div class="insight" style="margin-top:17px">${icon('shield')}<div><strong>Privasi terjaga</strong><p>Tidak ada akun, server, atau pengiriman data ke pihak lain. Riwayat hanya tersedia di browser/perangkat ini. Ekspor JSON secara berkala agar tidak hilang saat data browser dihapus.</p></div></div>
       <hr class="separator"/><button class="outline-btn" data-action="install-app">${icon('install')} Pasang aplikasi di HP</button><p class="muted-note">Di iPhone: buka melalui Safari → Bagikan → Tambah ke Layar Utama. Di Chrome Android, gunakan menu Install app jika tersedia. PWA memerlukan HTTPS atau localhost.</p>
       <hr class="separator"/><button class="link-button" style="color:#ae735e" data-action="reset-data">${icon('refresh')} Hapus semua data & mulai ulang</button></section>
@@ -419,6 +474,7 @@
       <h2 class="rail-heading">Aksi cepat</h2><button class="primary-btn full-btn" data-action="open-meal">${icon('plus')} Catat makanan</button><button class="outline-btn full-btn" style="margin-top:9px" data-action="open-weight">${icon('weight')} Tambah penimbangan</button>`;
   }
   function render() {
+    document.body.dataset.theme=data.theme;
     renderNav();
     const main=document.getElementById('main-view');
     main.innerHTML=({home:renderHome,meals:renderMeals,progress:renderProgress,workout:renderWorkout,settings:renderSettings}[ui.tab]||renderHome)();
@@ -433,7 +489,7 @@
     document.querySelector('.modal input, .modal select, .modal button')?.focus();
   }
   function openMeal(foodId=null,type=null) {
-    const food=presetFoods.find(f=>f.id===foodId),date=ui.tab==='meals'?ui.mealDate:TODAY();
+    const food=foodById(foodId),date=ui.tab==='meals'?ui.mealDate:TODAY();
     const mealType=type||food?.type||(()=>{const h=new Date().getHours();return h<11?'breakfast':h<15?'lunch':h<18?'snack':h<22?'dinner':'late';})();
     openModal(`<div class="modal-top"><div><p class="eyebrow">FOOD JOURNAL</p><h2>Catat makanan 🍽️</h2><p class="modal-note">Estimasi bisa diubah sesuai porsi sebenarnya.</p></div><button class="close-btn" data-action="close-modal" aria-label="Tutup">${icon('close')}</button></div>
       <form class="modal-form" id="meal-form"><div class="field"><label for="meal-name">Nama makanan</label><input name="name" id="meal-name" maxlength="90" required placeholder="Contoh: Nasi Padang ayam" value="${esc(food?.name||'')}" /></div>
@@ -447,11 +503,23 @@
     openModal(`<div class="modal-top"><div><p class="eyebrow">BODY PROGRESS</p><h2>Catat berat badan ⚖️</h2><p class="modal-note">Paling konsisten saat pagi hari setelah ke toilet, sebelum makan.</p></div><button class="close-btn" data-action="close-modal" aria-label="Tutup">${icon('close')}</button></div>
       <form class="modal-form" id="weight-form"><div class="field-grid"><div class="field"><label for="weight-date">Tanggal</label><input type="date" name="date" id="weight-date" max="${TODAY()}" required value="${TODAY()}" /></div><div class="field"><label for="weight-weight">Berat badan (kg)</label><input type="number" name="weight" id="weight-weight" min="25" max="300" step="0.1" required value="${currentWeight()}" /></div></div><p class="field-hint">Boleh timbang 2–3 kali seminggu. Jika ada dua catatan pada tanggal sama, aplikasi menggunakan input terakhir untuk grafik.</p><div class="modal-actions"><button type="button" class="outline-btn" data-action="close-modal">Batal</button><button type="submit" class="primary-btn">${icon('check')} Simpan berat</button></div></form>`);
   }
+  function printWeeklyReport(){
+    const start=dateShift(TODAY(),-6),days=Array.from({length:7},(_,i)=>dateShift(start,i));
+    const rows=days.map(day=>{const total=totalsOn(day);return `<tr><td>${formatDate(day,{weekday:'short',day:'numeric',month:'short'})}</td><td>${nf(total.cal)} kkal</td><td>${nf(total.protein,1)} g</td><td>${completedWorkoutDates().has(day)?'Workout':activityOn(day)?'Aktivitas':'-'}</td></tr>`;}).join('');
+    const popup=window.open('','naik-weekly-report','width=720,height=760');if(!popup)return showToast('Izinkan pop-up untuk mencetak laporan.');
+    popup.document.write(`<!doctype html><title>Ringkasan Naik</title><style>body{font:16px Arial;color:#25362f;padding:32px}h1{margin:0}p{color:#64736a}table{width:100%;border-collapse:collapse;margin-top:24px}th,td{text-align:left;padding:12px;border-bottom:1px solid #dde5da}th{background:#edf4e8}</style><h1>Ringkasan Mingguan Naik</h1><p>${esc(data.profile.name)} · ${formatDate(start,{day:'numeric',month:'long'})} - ${formatDate(TODAY(),{day:'numeric',month:'long',year:'numeric'})}</p><p>Berat terkini: <strong>${nf(currentWeight(),1)} kg</strong> · Target kenaikan: <strong>${nf(data.profile.weeklyGain,2)} kg/minggu</strong></p><table><thead><tr><th>Hari</th><th>Kalori</th><th>Protein</th><th>Aktivitas</th></tr></thead><tbody>${rows}</tbody></table><p>Dicetak dari Naik.</p>`);
+    popup.document.close();popup.focus();popup.print();
+  }
   function handleAction(el){
     const action=el.dataset.action;
     if(action==='navigate'){setTab(el.dataset.tab);return;}
     if(action==='open-meal'){openMeal(el.dataset.food||null,el.dataset.type||null);return;}
     if(action==='open-weight'){openWeight();return;}
+    if(action==='toggle-workout-reminder'){toggleWorkoutReminder();return;}
+    if(action==='toggle-theme'){data.theme=data.theme==='dark'?'light':'dark';save();render();return;}
+    if(action==='print-weekly-report'){printWeeklyReport();return;}
+    if(action==='repeat-meal'){const meal=data.meals.find(x=>x.id===el.dataset.id);if(!meal)return;data.meals.push({...meal,id:uid(),date:ui.mealDate});save();render();showToast(`${meal.name} dicatat lagi.`);return;}
+    if(action==='favorite-meal'){const meal=data.meals.find(x=>x.id===el.dataset.id);if(!meal)return;if(data.favoriteFoods.some(food=>food.name.toLocaleLowerCase('id-ID')===meal.name.toLocaleLowerCase('id-ID')))return showToast('Makanan sudah ada di favorit.');data.favoriteFoods.push({id:`favorite-${uid()}`,name:meal.name,emoji:meal.emoji||'🍽️',cal:Math.round(Number(meal.cal)/Number(meal.portions||1)),protein:Math.round(Number(meal.protein)/Number(meal.portions||1)*10)/10,type:meal.type});save();render();showToast(`${meal.name} ditambahkan ke favorit.`);return;}
     if(action==='close-modal'){closeModal();return;}
     if(action==='backdrop-close'){closeModal();return;}
     if(action==='date-prev'){ui.mealDate=dateShift(ui.mealDate,-1);render();return;}
@@ -475,7 +543,7 @@
     if(action==='view-workout-history'){showWorkoutHistory(el.dataset.id);return;}
     if(action==='delete-meal'){if(!window.confirm('Hapus catatan makanan ini?'))return;data.meals=data.meals.filter(x=>x.id!==el.dataset.id);save();render();showToast('Catatan makanan dihapus.');return;}
     if(action==='delete-weight'){if(!window.confirm('Hapus penimbangan ini?'))return;data.weights=data.weights.filter(x=>x.id!==el.dataset.id);save();render();showToast('Catatan berat dihapus.');return;}
-    if(action==='export-data'){const content=JSON.stringify(data,null,2),blob=new Blob([content],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`naik-backup-${TODAY()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);showToast('Backup JSON berhasil dibuat.');return;}
+    if(action==='export-data'){data.backupLastExport=Date.now();const content=JSON.stringify(data,null,2),blob=new Blob([content],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`naik-backup-${TODAY()}.json`;a.click();save();render();setTimeout(()=>URL.revokeObjectURL(url),3000);showToast('Backup JSON berhasil dibuat.');return;}
     if(action==='import-data'){document.getElementById('import-file').click();return;}
     if(action==='reset-data'){if(!window.confirm('PERINGATAN: Semua riwayat makan, latihan, dan timbang di perangkat ini akan dihapus. Lanjutkan?'))return;data=createDefault();save();ui.mealDate=TODAY();ui.workoutDate=TODAY();ui.workoutFocus=false;setTab('home');showToast('Program dimulai ulang.');return;}
     if(action==='install-app'){if(ui.installPrompt){ui.installPrompt.prompt();ui.installPrompt.userChoice.finally(()=>{ui.installPrompt=null;});}else{showToast('Gunakan menu browser: Install app atau Tambah ke Layar Utama.');}return;}
@@ -498,14 +566,18 @@
       data.weights.push({id:uid(),date:values.date,weight});save();closeModal();render();showToast('Berat badan berhasil dicatat. ✓');return;
     }
     if(form.id==='profile-form') {
-      const height=Number(values.height),start=Number(values.startWeight),target=Number(values.targetWeight),cal=Number(values.calorieGoal),protein=Number(values.proteinGoal);
-      if(!values.name.trim()||!Number.isFinite(height)||height<100||height>230||!Number.isFinite(start)||start<25||start>300||!Number.isFinite(target)||target<=start||target>300||!Number.isFinite(cal)||cal<1000||cal>6000||!Number.isFinite(protein)||protein<30||protein>300)return showToast('Target harus lebih besar dari berat awal. Periksa semua angka.');
+      const height=Number(values.height),start=Number(values.startWeight),target=Number(values.targetWeight),cal=Number(values.calorieGoal),protein=Number(values.proteinGoal),weeklyGain=Number(values.weeklyGain);
+      if(!values.name.trim()||!Number.isFinite(height)||height<100||height>230||!Number.isFinite(start)||start<25||start>300||!Number.isFinite(target)||target<=start||target>300||!Number.isFinite(cal)||cal<1000||cal>6000||!Number.isFinite(protein)||protein<30||protein>300||!Number.isFinite(weeklyGain)||weeklyGain<.05||weeklyGain>1)return showToast('Periksa target berat, asupan, dan kenaikan mingguan.');
+      if(weeklyGain>.5&&!window.confirm('Target di atas 0,5 kg/minggu cukup cepat. Tetap simpan?'))return;
+      if(cal<1500||protein>Math.max(250,start*3))showToast('Target disimpan. Tinjau kembali kalori/protein bila tidak sesuai kebutuhanmu.');
       if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(values.workoutTime||'')||!/^\d{4}-\d{2}-\d{2}$/.test(values.programStart||'')||values.programStart>TODAY()||!Number.isFinite(dateFrom(values.programStart).getTime()))return showToast('Periksa jam dan tanggal mulai workout.');
-      data.profile={...data.profile,name:values.name.trim().slice(0,50),height,startWeight:start,targetWeight:target,calorieGoal:cal,proteinGoal:protein};
+      data.profile={...data.profile,name:values.name.trim().slice(0,50),height,startWeight:start,targetWeight:target,weeklyGain,calorieGoal:cal,proteinGoal:protein};
       data.workoutSettings={time:values.workoutTime,programStart:weekMonday(values.programStart)};
       save();render();showToast('Profil dan target berhasil disimpan. ✓');return;
     }
   });
+  document.addEventListener('input',e=>{if(e.target.dataset.action==='meal-search'){ui.mealSearch=e.target.value;render();document.querySelector('.meal-search')?.focus();}});
+  document.addEventListener('change',e=>{if(e.target.dataset.action==='select-workout-progress'){ui.workoutProgressExercise=e.target.value;render();}});
   document.getElementById('import-file').addEventListener('change',async e=>{
     const file=e.target.files?.[0];if(!file)return;
     if(file.size>5*1024*1024)return showToast('File terlalu besar (maksimal 5 MB).');
@@ -516,7 +588,7 @@
       if(raw.workoutSessions!==undefined&&!Array.isArray(raw.workoutSessions)||raw.activityLogs!==undefined&&!Array.isArray(raw.activityLogs))throw Error('Format workout tidak valid');
       if(!window.confirm('Impor akan menggantikan SEMUA catatan yang ada di perangkat ini. Lanjutkan?'))return;
       const defaults=createDefault();
-      data={version:2,profile:{...defaults.profile,...raw.profile},weights:raw.weights,meals:raw.meals,workouts:raw.workouts,workoutSessions:raw.workoutSessions||[],activityLogs:raw.activityLogs||[],activeWorkout:raw.activeWorkout&&typeof raw.activeWorkout==='object'?raw.activeWorkout:null,workoutSettings:{...defaults.workoutSettings,...(raw.workoutSettings||{})}};
+       data={version:2,profile:{...defaults.profile,...raw.profile},weights:raw.weights,meals:raw.meals,favoriteFoods:Array.isArray(raw.favoriteFoods)?raw.favoriteFoods.slice(0,30):[],theme:raw.theme==='dark'?'dark':'light',workouts:raw.workouts,workoutSessions:raw.workoutSessions||[],activityLogs:raw.activityLogs||[],activeWorkout:raw.activeWorkout&&typeof raw.activeWorkout==='object'?raw.activeWorkout:null,backupLastExport:Number(raw.backupLastExport)||0,reminders:{...defaults.reminders,...(raw.reminders||{})},workoutSettings:{...defaults.workoutSettings,...(raw.workoutSettings||{})}};
       if(!/^\d{4}-\d{2}-\d{2}$/.test(data.workoutSettings.programStart)||!Number.isFinite(dateFrom(data.workoutSettings.programStart).getTime()))data.workoutSettings.programStart=defaults.workoutSettings.programStart;
       if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(data.workoutSettings.time))data.workoutSettings.time='17:30';
       ui.workoutFocus=false;ui.workoutDate=TODAY();save();setTab('home');showToast('Data berhasil dipulihkan dari backup. ✓');
@@ -528,8 +600,8 @@
   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();ui.installPrompt=e;});
   const syncOnline=()=>{document.getElementById('offline-banner').hidden=navigator.onLine;};
   window.addEventListener('online',syncOnline);window.addEventListener('offline',syncOnline);
-  syncOnline();render();
-  setInterval(updateWorkoutClocks,1000);
+  document.body.dataset.theme=data.theme;syncOnline();render();
+  setInterval(()=>{updateWorkoutClocks();checkWorkoutReminder();},1000);
   // Store initial default so refreshing the page does not reset the initial date.
   if(!localStorage.getItem(STORE_KEY))save();
   if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')) {

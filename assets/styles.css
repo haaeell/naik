@@ -21,6 +21,12 @@
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+[data-theme="dark"]{color-scheme:dark;--bg:#18221e;--paper:#23302a;--paper-warm:#202b26;--green:#8ec49c;--green-dark:#b0d7ae;--green-2:#9ed6a6;--mint:#2c4035;--lime:#3e5d43;--ink:#e5eee4;--subtle-ink:#b7c7b9;--muted:#9cad9f;--line:#35463d;--line-strong:#45594c;--peach:#473a30;--orange:#dfa078;--shadow:none;}
+[data-theme="dark"] .card,[data-theme="dark"] .stat-box,[data-theme="dark"] .quick-food,[data-theme="dark"] .outline-btn,[data-theme="dark"] .date-chip,[data-theme="dark"] .circle-icon-btn,[data-theme="dark"] .field input,[data-theme="dark"] .field select,[data-theme="dark"] .progress-exercise-select{background:#23302a;color:var(--ink);}
+[data-theme="dark"] .nav-item.active,[data-theme="dark"] .nutrition-total,[data-theme="dark"] .weekly-summary span,[data-theme="dark"] .workout-banner{background:#2a4032;}
+[data-theme="dark"] .workout-exercise-card,[data-theme="dark"] .focus-stat,[data-theme="dark"] .set-indicator{background:#23302a;border-color:var(--line);}
+[data-theme="dark"] .meal-row,[data-theme="dark"] .history-row,[data-theme="dark"] .milestone-row{border-color:var(--line);}
+[data-theme="dark"] .gain-status{background:#2a4032;border-color:var(--line);}
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; color: var(--ink); background: var(--bg); font-size: 14px; }
@@ -108,6 +114,8 @@ button, input, select { -webkit-tap-highlight-color: transparent; }
 .section-heading h2 {font-size:17px;letter-spacing:-.4px;margin:0;font-weight:800;}
 .section-note {font-size:12px;color:var(--muted);margin:6px 0 0;}
 .meal-list,.activity-list {display:flex;flex-direction:column;gap:0;}
+.meal-search{width:100%;min-height:42px;border:1px solid var(--line-strong);border-radius:11px;padding:9px 12px;margin:-4px 0 8px;background:var(--paper-warm);color:var(--ink);font:inherit;font-size:12px;}
+.gain-status{margin-top:16px;padding:15px 18px;border-radius:16px;background:#eef4e9;border:1px solid #dfe9d9;}.gain-status strong{font-size:12px;color:#447b58;}.gain-status p{margin:5px 0 0;color:#718878;font-size:11px;line-height:1.55;}
 .meal-row {display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid #eff1ed;}
 .meal-row:last-child{border-bottom:0;padding-bottom:0;}
 .meal-row:first-child{padding-top:0;}
@@ -248,6 +256,13 @@ button, input, select { -webkit-tap-highlight-color: transparent; }
 .field input:focus,.field select:focus{border-color:#8bb69a;box-shadow:0 0 0 3px rgba(95,150,108,.10);}
 .field-hint{font-size:10px;color:#a0afa1;line-height:1.5;}
 .settings-actions{display:flex;gap:10px;flex-wrap:wrap;}
+.weekly-summary{margin-top:17px;}
+.weekly-summary>div:last-child{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.weekly-summary span{background:#eff5ec;border-radius:13px;padding:12px 8px;color:#6a8370;font-size:10px;text-align:center;line-height:1.45;}
+.weekly-summary strong{display:block;color:var(--green);font-size:16px;}
+.backup-reminder{display:flex;align-items:flex-start;gap:11px;margin-top:17px;padding:14px;background:#fbf4e9;border-radius:14px;color:#976d4d;}
+.backup-reminder svg{width:18px;height:18px;flex:none;}
+.backup-reminder strong{font-size:12px;}.backup-reminder p{margin:4px 0 0;font-size:11px;line-height:1.5;}
 .warning-box{padding:15px;background:#fbf4ee;border-radius:13px;color:#a07658;font-size:11px;line-height:1.6;}
 .muted-note{color:#96a399;font-size:11px;line-height:1.65;}
 .separator{height:1px;border:0;background:var(--line);margin:22px 0;}
@@ -460,6 +475,16 @@ button, input, select { -webkit-tap-highlight-color: transparent; }
 .workout-timeline-list{border-top:1px solid #e9eee5;padding:5px 0 0;}
 .workout-timeline-row{display:grid;grid-template-columns:110px minmax(0,1fr) 60px;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #edf1e9;font-size:11px;}
 .workout-timeline-row:last-child{border:0;}
+.workout-progress{margin-top:0;}
+.progress-exercise-select{width:100%;min-height:42px;border:1px solid #dfe8dc;border-radius:11px;padding:9px 12px;background:#fbfdf9;color:#426650;font:inherit;font-size:12px;}
+.workout-progress-chart{height:150px;margin:17px 0 10px;border-bottom:1px solid #dfe9dd;background:repeating-linear-gradient(to bottom,transparent 0,transparent 36px,#edf2eb 37px);padding:10px 2px;}
+.workout-progress-chart svg{width:100%;height:100%;overflow:visible;}
+.workout-progress-chart polyline{fill:none;stroke:#4e9770;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;}
+.workout-progress-values{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;}
+.workout-progress-values span{min-width:68px;display:flex;flex-direction:column;gap:3px;color:#6d8371;font-size:10px;}
+.workout-progress-values strong{color:#366f51;font-size:13px;}.workout-progress-values small{white-space:nowrap;font-size:9px;color:#9aa89c;}
+.reminder-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}.reminder-row strong{font-size:13px;}.reminder-row p{margin:5px 0 0;font-size:11px;color:#8a9b8e;}
+@media(max-width:600px){.reminder-row{align-items:flex-start;flex-direction:column;}.reminder-row .primary-btn,.reminder-row .outline-btn{width:100%;}.workout-progress-chart{height:125px;}}
 .workout-timeline-row time{font-variant-numeric:tabular-nums;color:#5b8666;font-weight:790;}
 .workout-timeline-row span{color:#506957;font-weight:620;}
 .workout-timeline-row small{font-size:10px;color:#9eaa9d;text-align:right;}
